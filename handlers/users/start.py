@@ -1,7 +1,5 @@
 import asyncio
-import logging
 import uuid
-from functools import wraps
 
 from aiogram import types
 from aiogram.dispatcher import FSMContext
@@ -14,32 +12,6 @@ from urllib.parse import urljoin
 from filters import IsMessagePrivate
 from loader import dp, bot
 from state import reg_user
-
-
-def retry_on_connection_error(max_retry_attempts: int):
-    """
-    Декоратор для повторной попытки выполнения функции при ошибке соединения.
-
-    Args:
-        max_retry_attempts (int): Максимальное количество попыток повторной попытки выполнения функции.
-    """
-
-    def decorator(func):
-        @wraps(func)
-        async def wrapper(*args, **kwargs):
-            for attempt in range(max_retry_attempts):
-                try:
-                    return await func(*args, **kwargs)
-                except aiohttp.ClientError as e:
-                    logging.error(
-                        f"Connection error occurred: {e}. Retrying in 1 second... Attempt {attempt + 1}/{max_retry_attempts}")
-                    await asyncio.sleep(1)
-            logging.error(f"Max retry limit reached for function {func.__name__}")
-            raise
-
-        return wrapper
-
-    return decorator
 
 
 @dp.message_handler(IsMessagePrivate(), commands=['старт', 'start'])
@@ -117,7 +89,6 @@ async def get_url(message: types.Message, state: FSMContext):
     await state.finish()
 
 
-@retry_on_connection_error(3)
 async def parse_book_total(url: str) -> list:
     """
     Парсинг информации о товарах на основе ссылки от пользователя.
@@ -152,7 +123,6 @@ async def parse_book_total(url: str) -> list:
             return parsed_data
 
 
-@retry_on_connection_error(3)
 async def parse_book_link(url: str) -> dict:
     """
     Парсинг информации о конкретном товаре на основе спарсиной ссылки.
