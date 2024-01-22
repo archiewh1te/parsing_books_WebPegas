@@ -1,12 +1,24 @@
 import logging
 import time
 from functools import wraps
+from typing import Tuple, Type
 
 
-def retry_on_exception(exceptions, max_attempts):
+def retry_on_exception(exceptions: Tuple[Type[Exception], ...], max_attempts: int):
+    """
+    Декоратор для повторной попытки выполнения функции при возникновении исключений.
+
+    Args:
+        exceptions: Исключения, на которые реагирует декоратор.
+        max_attempts: Максимальное количество попыток выполнения функции.
+    """
+
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
+            """
+            Функция обеспечивающая повторные попытки выполнения функции при возникновении исключений.
+            """
             last_exception = None
             for attempt in range(max_attempts):
                 try:
@@ -26,7 +38,21 @@ def retry_on_exception(exceptions, max_attempts):
 
 
 @retry_on_exception((ZeroDivisionError, KeyError), 3)
-def risky_operation(x, y):
+def risky_operation(x: int, y: int) -> float:
+    """
+    Выполняет опасную функцию, возвращая результат деления двух чисел, если входные данные соответствуют проверке,
+    в противном случае вызывает исключение.
+
+    Args:
+        x : Делимое.
+        y : Делитель.
+
+    Return:
+        float: Результат деления x на y.
+
+    Raise:
+        KeyError: Недопустимые входные данные.
+    """
     if x > y:
         return x / y
     else:
