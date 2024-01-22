@@ -1,0 +1,1 @@
+from .registration import reg_user
