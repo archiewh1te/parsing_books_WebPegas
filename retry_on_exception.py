@@ -36,7 +36,7 @@ def risky_operation(x, y):
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 try:
-    result = risky_operation(2, 10)
+    result = risky_operation(10, 0)
     logging.info(f"Result: {result}")
 except Exception as e:
     logging.error(f"An exception occurred: {e}")
