@@ -7,37 +7,36 @@ def retry_on_exception(exceptions, max_attempts):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-            attempts = 0
-            while attempts < max_attempts:
+            last_exception = None
+            for attempt in range(max_attempts):
                 try:
                     return func(*args, **kwargs)
                 except exceptions as e:
-                    attempts += 1
-                    logging.error(f"Exception {e} occurred. Retrying in 1 second... Attempt {attempts}/{max_attempts}")
+                    last_exception = e
+                    logging.error(
+                        f"Exception {e} occurred. Retrying in 1 second... Attempt {attempt + 1}/{max_attempts}")
                     time.sleep(1)
-            try:
-                raise
-            except exceptions as e:
-                logging.error(f"Max retry limit reached. Exception {e} could not be handled after {attempts} attempts.")
-                raise
+            if last_exception is not None:
+                logging.error(f"Max retry limit reached. Last exception: {last_exception}")
+                raise last_exception
 
         return wrapper
 
     return decorator
 
 
-@retry_on_exception((RuntimeError, ValueError), 3)
-def example_function(a, b):
-    if a > b:
-        return a / b
+@retry_on_exception((ZeroDivisionError, KeyError), 3)
+def risky_operation(x, y):
+    if x > y:
+        return x / y
     else:
-        raise ValueError("Invalid input")
+        raise KeyError("Invalid input")
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 try:
-    result = example_function(2, 0)
+    result = risky_operation(2, 10)
     logging.info(f"Result: {result}")
 except Exception as e:
     logging.error(f"An exception occurred: {e}")
