@@ -1,5 +1,7 @@
 import asyncio
+import logging
 import uuid
+from functools import wraps
 
 from aiogram import types
 from aiogram.dispatcher import FSMContext
@@ -14,14 +16,54 @@ from loader import dp, bot
 from state import reg_user
 
 
+def retry_on_connection_error(max_retry_attempts: int):
+    """
+    Декоратор для повторной попытки выполнения функции при ошибке соединения.
+
+    Args:
+        max_retry_attempts (int): Максимальное количество попыток повторной попытки выполнения функции.
+    """
+
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            for attempt in range(max_retry_attempts):
+                try:
+                    return await func(*args, **kwargs)
+                except aiohttp.ClientError as e:
+                    logging.error(
+                        f"Connection error occurred: {e}. Retrying in 1 second... Attempt {attempt + 1}/{max_retry_attempts}")
+                    await asyncio.sleep(1)
+            logging.error(f"Max retry limit reached for function {func.__name__}")
+            raise
+
+        return wrapper
+
+    return decorator
+
+
 @dp.message_handler(IsMessagePrivate(), commands=['старт', 'start'])
 async def client_start(message: types.Message):
+    """
+    Обработчик команды "старт" или "start", инициирующий начало общения с пользователем.
+    Ожидает ввода имени пользователя.
+
+    Arg:
+        message (types.Message): Объект сообщения от пользователя
+    """
     await message.answer(f'Введите своё Имя: ')
     await reg_user.text.set()
 
 
 @dp.message_handler(IsMessagePrivate(), state=reg_user.text)
 async def hello_user(message: types.Message, state: FSMContext):
+    """
+    Обработчик имени пользователя и запроса ссылки.
+
+    Args:
+        message (types.Message): Объект сообщения от пользователя
+        state (FSMContext): Контекст состояния пользователей
+    """
     answer = message.text
     await state.update_data(name=answer)
     data = await state.get_data()
@@ -32,6 +74,13 @@ async def hello_user(message: types.Message, state: FSMContext):
 
 @dp.message_handler(IsMessagePrivate(), state=reg_user.url)
 async def get_url(message: types.Message, state: FSMContext):
+    """
+    Обработчик ссылки от пользователя, парсинга данных и отправки результата.
+
+    Args:
+        message (types.Message): Объект сообщения от пользователя
+        state (FSMContext): Контекст состояния пользователей
+    """
     url = message.text
     new_url = urllib.parse.quote(url, safe="%/:=&?~#+!$,;'@()*[]")
     msg_search = await message.answer('🔄 Собираю информацию...')
@@ -68,7 +117,18 @@ async def get_url(message: types.Message, state: FSMContext):
     await state.finish()
 
 
-async def parse_book_total(url):
+@retry_on_connection_error(3)
+async def parse_book_total(url: str) -> list:
+    """
+    Парсинг информации о товарах на основе ссылки от пользователя.
+
+    Arg:
+        url (str): Ссылка на страницу с товарами
+
+    Return:
+        list: Список словарей с информацией о товарах
+    """
+
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
             html = await response.text()
@@ -92,7 +152,17 @@ async def parse_book_total(url):
             return parsed_data
 
 
-async def parse_book_link(url):
+@retry_on_connection_error(3)
+async def parse_book_link(url: str) -> dict:
+    """
+    Парсинг информации о конкретном товаре на основе спарсиной ссылки.
+
+    Arg:
+        url (str): Ссылка на страницу с товаром
+
+    Return:
+        dict: Словарь с информацией о товаре
+    """
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
             html = await response.text()
